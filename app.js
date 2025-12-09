@@ -24,11 +24,34 @@ app.get('/', (req, res) => {
 });
 
 // Route for POST requests
-app.post('/', (req, res) => {
-  const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
-  console.log(`\n\nWebhook received ${timestamp}\n`);
-  console.log(JSON.stringify(req.body, null, 2));
-  res.status(200).end();
+app.post("/webhook", async (req, res) => {
+  const body = req.body;
+
+  // WhatsApp requires a response of 200 fast
+  res.sendStatus(200);
+
+  try {
+    const messages = body.entry?.[0]?.changes?.[0]?.value?.messages;
+
+    if (!messages) return;
+
+    const message = messages[0];
+    const from = message.from; // user phone number
+    const text = message.text?.body;
+
+    // Forward to n8n
+    await fetch("https://ksampat.app.n8n.cloud/webhook/incoming-whatsapp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from,
+        text,
+        raw: body
+      })
+    });
+  } catch (err) {
+    console.error("Error forwarding to n8n:", err);
+  }
 });
 
 // Start the server
